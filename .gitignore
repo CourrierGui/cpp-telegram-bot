@@ -1,0 +1,5 @@
+bot.yaml
+build
+*.gif
+tags
+.ycm_extra_conf.py
