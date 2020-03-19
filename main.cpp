@@ -5,6 +5,7 @@
 #include <algorithm>
 #include <regex>
 #include <yaml-cpp/yaml.h>
+#include <chrono>
 
 struct RandInt {
   std::mt19937 seed;
@@ -67,40 +68,56 @@ int main(int argc, char** argv) {
       << std::endl;
     return 0;
   }
+  int32_t start_time = std::chrono::duration_cast<std::chrono::seconds>(std::chrono::system_clock::now().time_since_epoch()).count();
 
   YAML::Node on_trigger = node["on_trigger"];
   YAML::Node on_ping = node["on_ping"];
   MessageBuffer buffer(on_ping);
   TgBot::Bot bot(token);
 
-  bot.getEvents().onCommand("start", [&bot](TgBot::Message::Ptr message) {
-    std::cout << message->chat->id << std::endl;
-    bot.getApi().sendMessage(message->chat->id, "Hi!");
+  bot.getEvents().onCommand("start", [&bot, start_time](TgBot::Message::Ptr message) {
+    if (message->date > start_time)
+      bot.getApi().sendMessage(message->chat->id, "Hi!");
   });
 
-  bot.getEvents().onCommand("ping", [&bot, &buffer](TgBot::Message::Ptr message) {
-    if (message->text == "/ping@BestLanguageBot")
+  bot.getEvents().onCommand("ping", [&bot, &buffer, start_time](TgBot::Message::Ptr message) {
+    std::clog << message->text << '\n';
+    if (message->text == "/ping@BestLanguageBot" && message->date > start_time)
       bot.getApi().sendMessage(message->chat->id, buffer(), false, message->messageId);
   });
 
-  bot.getEvents().onNonCommandMessage([&bot, &on_trigger](TgBot::Message::Ptr message) {
+  bot.getEvents().onNonCommandMessage(
+    [&bot, &on_trigger, start_time](TgBot::Message::Ptr message) {
+      std::clog << start_time << ' ' << message->date << '\n';
+      if (message->date < start_time) return;
 
-    printf("User wrote %s\n", message->text.c_str());
-    for (auto it=on_trigger.begin(); it!=on_trigger.end(); ++it) {
-      std::regex reg((*it).first.as<std::string>());
+      printf("User wrote %s\n", message->text.c_str());
+      for (auto it=on_trigger.begin(); it!=on_trigger.end(); ++it) {
+        std::regex reg((*it).first.as<std::string>());
 
-      auto words_begin = std::sregex_iterator(message->text.begin(), message->text.end(), reg);
-      if (std::distance(words_begin, std::sregex_iterator())) {
-        if ((*it).second["text"]) {
-          bot.getApi().sendMessage(message->chat->id, (*it).second["text"].as<std::string>(), false, message->messageId);
+        auto words_begin = std::sregex_iterator(
+          message->text.begin(),
+          message->text.end(),
+          reg);
+
+        if (std::distance(words_begin, std::sregex_iterator())) {
+
+          if ((*it).second["text"]) {
+            bot.getApi().sendMessage(
+              message->chat->id,
+              (*it).second["text"].as<std::string>(),
+              false,
+              message->messageId);
+          }
+
+          if ((*it).second["gif"]) {
+            /* bot.getApi().sendAnimation( */
+            /*   message->chat->id, */
+            /*   (*it).second["gif"].as<std::string>()); */
+          }
+          break;
         }
-        /* if ((*it).second["gif"]) { */
-        /*   bot.getApi().sendAnimation(message->chat->id, (*it).second["gif"].as<std::string>()); */
-
-        /* } */
-        break;
       }
-    }
   });
 
   try {
