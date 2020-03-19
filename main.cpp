@@ -74,34 +74,32 @@ int main(int argc, char** argv) {
   TgBot::Bot bot(token);
 
   bot.getEvents().onCommand("start", [&bot](TgBot::Message::Ptr message) {
+    std::cout << message->chat->id << std::endl;
     bot.getApi().sendMessage(message->chat->id, "Hi!");
   });
 
   bot.getEvents().onCommand("ping", [&bot, &buffer](TgBot::Message::Ptr message) {
-    bot.getApi().sendMessage(message->chat->id, buffer());
+    if (message->text == "/ping@BestLanguageBot")
+      bot.getApi().sendMessage(message->chat->id, buffer(), false, message->messageId);
   });
 
-  bot.getEvents().onAnyMessage([&bot, &on_trigger](TgBot::Message::Ptr message) {
+  bot.getEvents().onNonCommandMessage([&bot, &on_trigger](TgBot::Message::Ptr message) {
 
     printf("User wrote %s\n", message->text.c_str());
-
     for (auto it=on_trigger.begin(); it!=on_trigger.end(); ++it) {
       std::regex reg((*it).first.as<std::string>());
 
       auto words_begin = std::sregex_iterator(message->text.begin(), message->text.end(), reg);
       if (std::distance(words_begin, std::sregex_iterator())) {
         if ((*it).second["text"]) {
-          bot.getApi().sendMessage(message->chat->id, (*it).second["text"].as<std::string>());
+          bot.getApi().sendMessage(message->chat->id, (*it).second["text"].as<std::string>(), false, message->messageId);
         }
-        if ((*it).second["gif"]) {
-          bot.getApi().sendAnimation(message->chat->id, (*it).second["gif"].as<std::string>());
-        }
+        /* if ((*it).second["gif"]) { */
+        /*   bot.getApi().sendAnimation(message->chat->id, (*it).second["gif"].as<std::string>()); */
+
+        /* } */
+        break;
       }
-
-    }
-
-    if (StringTools::startsWith(message->text, "/start") || StringTools::startsWith(message->text, "/ping")) {
-      return;
     }
   });
 
