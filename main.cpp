@@ -88,7 +88,6 @@ int main(int argc, char** argv) {
 
   bot.getEvents().onNonCommandMessage(
     [&bot, &on_trigger, start_time](TgBot::Message::Ptr message) {
-      std::clog << start_time << ' ' << message->date << '\n';
       if (message->date < start_time) return;
 
       printf("User wrote %s\n", message->text.c_str());
