@@ -7,6 +7,11 @@
 #include <yaml-cpp/yaml.h>
 #include <chrono>
 
+//TODO: ajouter un rate sur les reply
+//TODO: ajouter un agrument pour savoir si c'est un reply ou non
+//TODO: ajouter les groupings
+//TODO: bf interpretor ?
+
 struct RandInt {
   std::mt19937 seed;
   std::uniform_real_distribution<double> gen;
@@ -56,19 +61,23 @@ class MessageBuffer {
 int main(int argc, char** argv) {
 
   YAML::Node node;
+  YAML::Node gifs;
   std::string token;
   if (argc > 2) {
     token = argv[1];
     node = YAML::LoadFile(argv[2]);
+    gifs = YAML::LoadFile(argv[3]);
   } else {
     std::cout << "Invalid number of arguments: "
       << argv[0]
       << " <token>"
       << " <yaml_file>"
+      << " <gifs_file>"
       << std::endl;
     return 0;
   }
   int32_t start_time = std::chrono::duration_cast<std::chrono::seconds>(std::chrono::system_clock::now().time_since_epoch()).count();
+  RandInt rand_int;
 
   YAML::Node on_trigger = node["on_trigger"];
   YAML::Node on_ping = node["on_ping"];
@@ -76,8 +85,19 @@ int main(int argc, char** argv) {
   TgBot::Bot bot(token);
 
   bot.getEvents().onCommand("start", [&bot, start_time](TgBot::Message::Ptr message) {
-    if (message->date > start_time)
+    if (message->date > start_time && message->text == "/start@BestLanguageBot")
       bot.getApi().sendMessage(message->chat->id, "Hi!");
+  });
+
+  bot.getEvents().onCommand("test", [&bot, &gifs, start_time](TgBot::Message::Ptr message) {
+    if (message->date > start_time && message->from->id == 472577275 && message->chat->id == 472577275) {
+      std::clog << message->chat->id << ' ' << message->from->id << '\n';
+      for (auto p: gifs) {
+        bot.getApi().sendMessage(message->chat->id, p.first.Scalar());
+        bot.getApi().sendAnimation(message->chat->id, p.second.Scalar());
+      }
+
+    } else return;
   });
 
   bot.getEvents().onCommand("ping", [&bot, &buffer, start_time](TgBot::Message::Ptr message) {
@@ -87,13 +107,16 @@ int main(int argc, char** argv) {
   });
 
   bot.getEvents().onNonCommandMessage(
-    [&bot, &on_trigger, start_time](TgBot::Message::Ptr message) {
-      std::clog << start_time << ' ' << message->date << '\n';
+    [&bot, &on_trigger, &rand_int, &gifs, start_time](TgBot::Message::Ptr message) {
       if (message->date < start_time) return;
 
-      printf("User wrote %s\n", message->text.c_str());
-      for (auto it=on_trigger.begin(); it!=on_trigger.end(); ++it) {
-        std::regex reg((*it).first.as<std::string>());
+      std::clog
+        << "User wrote "
+        << message->text
+        << '\n';
+
+      for (auto regex: on_trigger) {
+        std::regex reg((regex).first.Scalar());
 
         auto words_begin = std::sregex_iterator(
           message->text.begin(),
@@ -101,19 +124,29 @@ int main(int argc, char** argv) {
           reg);
 
         if (std::distance(words_begin, std::sregex_iterator())) {
+          int id = rand_int(0, regex.second.size());
+          YAML::Node n = regex.second[id];
 
-          if ((*it).second["text"]) {
+          if (n["text"]) {
+            std::clog << "test\n";
             bot.getApi().sendMessage(
               message->chat->id,
-              (*it).second["text"].as<std::string>(),
+              n["text"].Scalar(),
               false,
               message->messageId);
           }
 
-          if ((*it).second["gif"]) {
-            /* bot.getApi().sendAnimation( */
-            /*   message->chat->id, */
-            /*   (*it).second["gif"].as<std::string>()); */
+          if (n["image"]) {
+            std::clog << "test image\n";
+            bot.getApi().sendPhoto(
+              message->chat->id,
+              n["image"].Scalar());
+          }
+
+          if (n["gif"]) {
+            bot.getApi().sendAnimation(
+              message->chat->id,
+              gifs[n["gif"].Scalar()].Scalar());
           }
           break;
         }

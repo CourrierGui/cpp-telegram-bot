@@ -3,3 +3,6 @@ build
 *.gif
 tags
 .ycm_extra_conf.py
+token
+images
+gif.yaml
