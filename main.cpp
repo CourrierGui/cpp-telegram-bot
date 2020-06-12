@@ -1,16 +1,27 @@
-#include <stdio.h>
 #include <tgbot/tgbot.h>
+#include <yaml-cpp/yaml.h>
+
+#include <curlpp/cURLpp.hpp>
+#include <curlpp/Options.hpp>
+#include <curlpp/Easy.hpp>
+#include <nlohmann/json.hpp>
+
+#include <stdio.h>
 #include <random>
 #include <iostream>
 #include <algorithm>
 #include <regex>
-#include <yaml-cpp/yaml.h>
 #include <chrono>
 
+using json = nlohmann::json;
+
 //TODO: ajouter un rate sur les reply
-//TODO: ajouter un agrument pour savoir si c'est un reply ou non
+//TODO: ajouter un argument pour savoir si c'est un reply ou non
 //TODO: ajouter les groupings
 //TODO: bf interpretor ?
+
+constexpr const int nb_images = 300;
+constexpr const char* URL = "https://api.unsplash.com/search/photos?query=beer&client_id=Lb2xA1iBU2AuHIiF3u5lWO-bhgHDINKml3H79mkCzlI&per_page=300";
 
 struct RandInt {
   std::mt19937 seed;
@@ -79,9 +90,18 @@ int main(int argc, char** argv) {
   int32_t start_time = std::chrono::duration_cast<std::chrono::seconds>(std::chrono::system_clock::now().time_since_epoch()).count();
   RandInt rand_int;
 
+  curlpp::Cleanup cleanup;
+  curlpp::Easy request;
+  request.setOpt<curlpp::Options::Url>(URL);
+
+  std::ostringstream sstream;
+  sstream << request;
+
+  json j = json::parse(sstream.str());
+
   YAML::Node on_trigger = node["on_trigger"];
   YAML::Node on_ping = node["on_ping"];
-  MessageBuffer buffer(on_ping);
+  MessageBuffer ping_buffer(on_ping);
   TgBot::Bot bot(token);
 
   bot.getEvents().onCommand("start", [&bot, start_time](TgBot::Message::Ptr message) {
@@ -100,10 +120,22 @@ int main(int argc, char** argv) {
     } else return;
   });
 
-  bot.getEvents().onCommand("ping", [&bot, &buffer, start_time](TgBot::Message::Ptr message) {
-    std::clog << message->text << '\n';
+  bot.getEvents().onCommand("ping", [&bot, &ping_buffer, start_time](TgBot::Message::Ptr message) {
     if (message->text == "/ping@BestLanguageBot" && message->date > start_time)
-      bot.getApi().sendMessage(message->chat->id, buffer(), false, message->messageId);
+      bot.getApi().sendMessage(message->chat->id, ping_buffer(), false, message->messageId);
+  });
+
+  bot.getEvents().onCommand("chat", [&bot, &rand_int, &j, start_time](TgBot::Message::Ptr message) {
+    if (message->date > start_time) {
+      int id = rand_int(0, 30);
+      std::string image_url = j["results"][id]["urls"]["small"];
+
+      bot.getApi().sendPhoto(
+        message->chat->id,
+        image_url,
+        "Je crois que tu voulais une bière plutôt.",
+        message->messageId);
+    }
   });
 
   bot.getEvents().onNonCommandMessage(
@@ -137,7 +169,6 @@ int main(int argc, char** argv) {
           }
 
           if (n["image"]) {
-            std::clog << "test image\n";
             bot.getApi().sendPhoto(
               message->chat->id,
               n["image"].Scalar());
