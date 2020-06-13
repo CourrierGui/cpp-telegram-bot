@@ -1,0 +1,6 @@
+[submodule "extern/json"]
+	path = extern/json
+	url = https://github.com/nlohmann/json
+[submodule "extern/tgbot-cpp"]
+	path = extern/tgbot-cpp
+	url = https://github.com/reo7sp/tgbot-cpp
