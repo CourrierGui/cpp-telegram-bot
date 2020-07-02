@@ -1,45 +1,22 @@
 #include <bot/bot.hpp>
-#include <bot/buffer.hpp>
 
 #include <map>
 #include <regex>
 
-void Bot::send_message(
-	const YAML::Node& n,
-	TgBot::Message::Ptr& message)
-{
-	if (n["text"]) {
-		bot.getApi().sendMessage(
-			message->chat->id,
-			n["text"].Scalar(),
-			false,
-			message->messageId
-		);
-	}
+namespace cppbot {
 
-	if (n["image"]) {
-		bot.getApi().sendPhoto(
-			message->chat->id,
-			n["image"].Scalar()
-		);
-	}
-
-	if (n["gif"]) {
-		std::string gif;
-		if (variables["gif"][n["gif"].Scalar()]) {
-			gif = variables["gif"][n["gif"].Scalar()].Scalar();
-		} else {
-			gif = n["gif"].Scalar();
-		}
-		bot.getApi().sendAnimation(message->chat->id, gif);
-	}
+void Bot::send_message(const Message& n, TgBot::Message::Ptr& message) {
+	if (n.type == "text")
+		bot.getApi().sendMessage(message->chat->id, n.message, false, message->messageId);
+	else if (n.type == "image")
+		bot.getApi().sendPhoto(message->chat->id, n.message);
+	else if (n.type == "gif")
+		bot.getApi().sendAnimation(message->chat->id, n.message);
 }
 
 Bot::Bot(const std::string& token, const std::string& var_file)
-	: bot(token),
-		start_time(get_start_time()),
-		variables(YAML::LoadFile(var_file))
-{
+	: bot(token), start_time(get_start_time()), variables(YAML::LoadFile(var_file)) {
+
 }
 
 void Bot::start() {
@@ -56,14 +33,11 @@ void Bot::start() {
 		}
 
 	} catch (TgBot::TgException& e) {
-		std::cerr
-			<< "error: "
-			<< e.what()
-			<< '\n';
+		std::cerr << "error: " << e.what() << '\n';
 	}
 }
 
-void Bot::init_unsplash(const std::string& id) {
+void Bot::init_unsplash(const std::string&) {
 
 }
 
@@ -71,7 +45,7 @@ void Bot::process_config(const std::string& file) {
 	YAML::Node config = YAML::LoadFile(file);
 	for (const auto& map: config) {
 		if (map.first.Scalar() != "on_trigger") {
-			MessageBuffer buffer(map.second);
+			MessageBuffer buffer(parse_simple_command(map.second));
 
 			std::string name = map.first.Scalar();
 			name.replace(0, 3, "");
@@ -85,14 +59,15 @@ void Bot::process_config(const std::string& file) {
 			add_command(name, cmd);
 
 		} else {
-			YAML::Node on_trigger = config["on_trigger"];
+			auto on_trigger = parse_trigger_command(config["on_trigger"]);
 			RandInt rand_int;
 			bot.getEvents().onNonCommandMessage(
 				[this, on_trigger, rand_int](TgBot::Message::Ptr message) {
 					if (message->date < start_time) return;
 
-					for (auto regex: on_trigger) {
-						std::regex reg((regex).first.Scalar());
+					for (auto kv: on_trigger) {
+						std::clog << kv.first << '\n';
+						std::regex reg(kv.first);
 
 						auto words_begin = std::sregex_iterator(
 							message->text.begin(),
@@ -101,13 +76,14 @@ void Bot::process_config(const std::string& file) {
 						);
 
 						if (std::distance(words_begin, std::sregex_iterator())) {
-							int id = rand_int(0, regex.second.size());
-							YAML::Node n = regex.second[id];
+							int id = rand_int(0, kv.second.size());
+							Message n = kv.second[id];
 							send_message(n, message);
 							break;
 						}
 					}
-				});
+				}
+			);
 		}
 	}
 }
@@ -136,3 +112,5 @@ void Bot::add_command(
 /*       message->messageId); */
 /*   } */
 /* }); */
+
+}

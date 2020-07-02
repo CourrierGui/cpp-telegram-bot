@@ -7,6 +7,10 @@
 #include <string>
 #include <fstream>
 
+#include <bot/buffer.hpp>
+
+namespace cppbot {
+
 class Bot {
 	public:
 		Bot(const std::string&, const std::string&);
@@ -26,7 +30,9 @@ class Bot {
 			const TgBot::EventBroadcaster::MessageListener&
 		);
 		void send_message(
-			const YAML::Node&,
+			const Message&,
 			TgBot::Message::Ptr&
 		);
 };
+
+}

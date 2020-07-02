@@ -31,6 +31,7 @@ add_library(cppbot-utils STATIC
 	src/bot.cpp
 	src/buffer.cpp
 	src/unsplash.cpp
+	src/arg-parser.cpp
 )
 target_include_directories(cppbot-utils
 	PUBLIC
@@ -50,3 +51,11 @@ target_link_libraries( cppbot-utils
 
 add_executable(cppbot app/main.cpp)
 target_link_libraries(cppbot PRIVATE target-flags cppbot-utils)
+
+option(BUILD_TESTING "Build the tests" ON)
+if(CMAKE_PROJECT_NAME STREQUAL PROJECT_NAME AND BUILD_TESTING)
+  enable_testing()
+  include(GoogleTest)
+endif()
+
+add_subdirectory(tests)
