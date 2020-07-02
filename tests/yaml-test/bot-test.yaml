@@ -1,0 +1,26 @@
+on_test:
+  - text: "coucou"
+  - gif: "au revoir"
+  - image: "toto.png"
+
+on_trigger:
+  - "[A-Z]":
+    - text: "toto"
+  - ".*pp":
+    - gif: "homer"
+  - "\\s+":
+    - image: "bird"
+
+variables:
+  - name: "toto"
+  - date: "22 juin"
+  - "two words": "espaces dans les variables"
+  - moyen: "plus"
+  - qualif: "compliqué"
+  - quel: "autres"
+
+on_resolve:
+  - text: "je m'appelle {{name}}"
+  - gif: "je suis né le {{date}}"
+  - image: "on peut mettre des {{two words}}"
+  - gif: "ce test est {{moyen}} {{qualif}} que les {{quel}}."
